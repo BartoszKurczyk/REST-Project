@@ -31,9 +31,11 @@ import java.util.stream.Collectors;
 @RestController
 public class BookController {
     List<Book> books;
+    List<State> logs;
     public BookController(){
 
         books=new ArrayList<Book>();
+        logs = new ArrayList<State>();
         readBooksFromCSV();
     }
     private void readBooksFromCSV()
@@ -90,6 +92,12 @@ public class BookController {
 
     }
 
+    @GetMapping(path = "/bookshop/logs")
+    public List<State> getLogs()
+    {
+        return logs;
+    }
+
     @GetMapping(path = "/bookshop/book")
     public List<Book> getBook(@RequestParam(value = "publisher",required = false) String publisher,
                               @RequestParam(value = "genre",required = false) String genre){
@@ -117,14 +125,20 @@ public class BookController {
         {
             if(obj.getString("status").equals("book.id.not.correct"))
             {
-                return new Error("Book id isn't correct",obj.getString("time"));
+                State tmpError = new Error("Book id isn't correct",obj.getString("time"));
+                logs.add(tmpError);
+                return tmpError;
             }
             else if(obj.getString("status").equals("book.not.found"))
             {
-                return new Error("Book not found",obj.getString("time"));
+                State tmpError =new Error("Book not found",obj.getString("time"));
+                logs.add(tmpError);
+                return tmpError;
             }
             else{
-                return new Error("Undentified error",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
+                State tmpError =new Error("Undentified error",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));;
+                logs.add(tmpError);
+                return tmpError;
             }
         }
 
@@ -153,14 +167,21 @@ public class BookController {
     public State addBook(@Validated @RequestBody(required = true) Book newBook){
         State state;// =
         boolean nowOnBookShelf = containsInBookShop(newBook);
+        if(!validBookData(newBook)){
+            State tmpError = new Error("Book is not valid",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
+            logs.add(tmpError);
+            return tmpError;
+        }
         if(nowOnBookShelf)
         {
             state = new Error("Book already existing in bookshop",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
+            logs.add(state);
         }
         else{
             newBook.setId(UUID.randomUUID().toString());
             books.add(newBook);
             state = new Info("Book has been added",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
+            logs.add(state);
         }
 
         return state;
@@ -179,6 +200,18 @@ public class BookController {
     public State updateBook(@RequestParam(value = "id",required = true) String id, @Validated @RequestBody(required = true) Book updatedBook){
         State state;
         Book bookToUpdate = books.stream().filter(x->x.getId().equals(id)).findAny().orElse(null);
+        if(!validBookData(updatedBook))
+        {
+            State tmpError = new Error("Book is not valid",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
+            logs.add(tmpError);
+            return tmpError;
+        }
+        if(!validID(id))
+        {
+            State tmpError = new Error("Incorrect ID",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
+            logs.add(tmpError);
+            return tmpError;
+        }
         if(bookToUpdate==null){
             state = new Error("Book with this id not found",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
         }
@@ -188,13 +221,19 @@ public class BookController {
             books.add(updatedBook);
             state = new Info("Book has been updated",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
         }
-
+        logs.add(state);
         return state;
     }
     @DeleteMapping(path = "/bookshop/book")
     public State deleteBook(@RequestParam(value = "id",required = true) String id){
         State state;
         Book bookToDelete = books.stream().filter(x->x.getId().equals(id)).findAny().orElse(null);
+        if(!validID(id))
+        {
+            State tmpError = new Error("Incorrect ID",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
+            logs.add(tmpError);
+            return tmpError;
+        }
         if(bookToDelete==null){
             state = new Error("Book whit this id not found",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
         }
@@ -203,7 +242,7 @@ public class BookController {
             books.remove(bookToDelete);
             state = new Info("Book has been removed",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
         }
-
+        logs.add(state);
         return state;
     }
 }
